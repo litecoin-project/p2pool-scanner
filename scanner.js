@@ -204,29 +204,27 @@ function Scanner(options) {
         self.addr_digested[info.ip] = info;
         // console.log("P2POOL DIGESTING:",info.ip);
 
-        digest_ip(info, function(err, fee){
-            if(!err) {
-                info.fee = fee;
+        digest_local_stats(info, function(err, stats){
+            if(!err && info.stats.protocol_version >= 1300) {
+                // Exclude nodes lacking protocol_version or older than 1300
+                info.stats = stats;
+                info.fee   = stats.fee;
                 self.addr_working[info.ip] = info;
                 // console.log("FOUND WORKING POOL: ", info.ip);
 
-                digest_local_stats(info, function(err, stats) {
+                digest_global_stats(info, function(err, stats) {
                     if(!err)
-                        info.stats = stats;
-                    digest_global_stats(info, function(err, stats) {
-                        if(!err)
-                            self.update_global_stats(stats);
+                        self.update_global_stats(stats);
 
-                        if(!info.geo)
-                            self.geo.get(info.ip, function(err, geo) {
-                                if(!err)
-                                    info.geo = geo;
+                    if(!info.geo)
+                        self.geo.get(info.ip, function(err, geo) {
+                            if(!err)
+                                info.geo = geo;
 
-                                continue_digest();
-                            });
-                        else
                             continue_digest();
-                    });
+                        });
+                    else
+                        continue_digest();
                 });
             }
             else {
@@ -249,18 +247,6 @@ function Scanner(options) {
     }
 
     // functions to fetch data from target node IP
-
-    function digest_ip(info, callback) {
-
-        var options = {
-          host: info.ip,
-          port: 9327,
-          path: '/fee',
-          method: 'GET'
-        };
-
-        self.request(options, callback);
-    }
 
     function digest_local_stats(info, callback) {
 

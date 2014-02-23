@@ -201,6 +201,10 @@ function Scanner(options) {
 
         var info = _.find(self.addr_pending, function() { return true; });
         delete self.addr_pending[info.ip];
+
+	if(info.ip == "0.0.0.0" || info.ip == "127.0.0.1")
+            return;
+
         self.addr_digested[info.ip] = info;
         // console.log("P2POOL DIGESTING:",info.ip);
 

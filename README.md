@@ -8,8 +8,8 @@ You need to setup separate instances of this process with different config files
 If HTTP port is provided in the configuration file, this application will publish the list on the given HTTP port.  Alternatively, it can be configured to upload page rendering to a destination FTP address to copy it to another host via SCP.
 
 Installing
-___________
+-------------
 
-# Install http://nodejs.org/
-# npm install underscore
-# npm install express
+* Install http://nodejs.org/
+* npm install underscore
+* npm install express

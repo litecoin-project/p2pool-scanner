@@ -1,4 +1,3 @@
-
 var fs = require('fs'),
     http = require('http'),
     exec = require('child_process').exec,
@@ -27,9 +26,9 @@ function Scanner(options) {
     {
         var express = require('express');
         var app = express();
-        app.configure(function(){
-            app.use(express.bodyParser());
-        });
+        //app.configure(function(){
+        //    app.use(express.bodyParser());
+        //});
         app.get('/', function(req, res) {
             var str = self.render();
             res.write(str);

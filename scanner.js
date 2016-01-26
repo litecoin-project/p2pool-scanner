@@ -22,12 +22,12 @@ var nsLookup = function(ip, timeout, callback) {
 };
 /*
 nsLookup('192.168.0.10', 1000, function(err, addresses) {
-  console.log("Results for stackoverflow.com, timeout 1000:");
+ // console.log("Results for stackoverflow.com, timeout 1000:");
   if (err) {
     console.log("Err: " + err);
     return;
   }
-  console.log(addresses);
+ // console.log(addresses);
 });
 */
 
@@ -46,10 +46,11 @@ function Scanner(options) {
     self.addr_working = { }     // list of working addresses
     
     var peers = "";
-   
+    var timeout = { timeout : config.http_socket_timeout };
 
-    self.geo = new Geo({ timeout : config.http_socket_timeout });
+    self.geo = new Geo(timeout);
     var pool_hash = 0;
+    self.stored = 0;
   	// -----------------------------------------
    	// local http server interface 
     if(config.http_port) 
@@ -83,6 +84,7 @@ function Scanner(options) {
       var data ="", ipdata="", other = 0;
         var str = "<html><head><META HTTP-EQUIV='refresh' CONTENT='300'>"
 	    +"<META HTTP-EQUIV='CACHE-CONTROL' CONTENT='NO-CACHE'>"
+	    +"<meta charset='utf-8'>"
             +"<style>"
             +"body { font-family: Consolas; font-size: 14px; background-color: #fff; color: #000; }"
             +"a:link { text-decoration: none; color: #0051AD; }"
@@ -106,6 +108,7 @@ function Scanner(options) {
             +"</head><body>"
 	    +"<script src='http://cdnjs.cloudflare.com/ajax/libs/ocanvas/2.5.0/ocanvas.min.js'></script>"
 	    +"<script src='http://p2pool.neoscrypt.de/js/drawpie.js'></script>"
+//	    +"<script src='http://p2pool.neoscrypt.de/js/drawpie2.js'></script>"
 	
         if(logo)
             str += "<div style='float:left;margin-left:150px;margin-top:16px;'><img src=\""+logo+"\" /></div>"; //<br style='clear:both;'/>";
@@ -118,8 +121,8 @@ function Scanner(options) {
         str += "<div class='p2p-row p2p-caption'><div class='p2p-ip'>IPs</div><div class='p2p-fee'>Fee</div><div class='p2p-hash'>Hashrate</div><div class='p2p-uptime'>Uptime</div><div class='p2p-geo'>Location</div>";
         str += "</div><br style='clear:both;'/>";
 	
-        var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.stats ? -o.stats.uptime : 0; })
-	//var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.stats ? -o.stats.my_hash_rates_in_last_hour.actual : 0; })
+        //var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.stats ? -o.stats.uptime : 0; })
+	var list = _.sortBy(_.toArray(self.addr_working), function(o) { return o.stats ? -o.stats.my_hash_rates_in_last_hour.actual : 0; })
 	data +="[";
 	ipdata +="[";
         var row = 0;
@@ -170,12 +173,13 @@ function Scanner(options) {
     // setup flushing of rendered HTML page to a file (useful for uploading to other sites)
     if(config.flush_to_file_every_N_msec && config.flush_filename) {
         function flush_rendering() {
+	 //   console.log(Date("ddmmyy hh:mm:ss")," Updating html page");
             var str = self.render();
             fs.writeFile(config.flush_filename, str, { encoding : 'utf8'});
             dpc(config.flush_to_file_every_N_msec, flush_rendering);
         }
 
-        dpc(20*60*1000, flush_rendering); // every 20 minutes
+        dpc(2*60*1000, flush_rendering); // every 2 minutes
     }
 
     // defer init
@@ -215,7 +219,7 @@ function Scanner(options) {
 
                         for(var i = 0; i < (config.probe_N_IPs_simultaneously || 1); i++)
                             self.digest();
-                        dpc(60*1000, function() { self.store_working(); })
+                //        dpc(60*1000, function() { self.store_working(); })
                     }
                 }
                 catch(ex) {
@@ -223,16 +227,22 @@ function Scanner(options) {
                     console.error(ex);
                 }
             }
-
-            dpc(1000 * 60 * 60, self.update);  //every 60 minutes
+          // not needed, as node list is updated based on connecion info of working pools now
+	  //  dpc(1000 * 60 * 60, self.update);  //every 60 minutes
         })
     }
     
     // store public pools in a file that reloads at startup
     self.store_working = function() {
+	console.log("Storing working addresses to file");
         var data = JSON.stringify(self.addr_working);
         fs.writeFile(config.store_file, data, { encoding : 'utf8' }, function(err) {
-            dpc(60*1000, self.store_working);
+	  
+	  if (err) {
+	    console.error( "Error saving working addresses");
+	    console.error(err);
+	  }
+	  
         })
     }
 
@@ -278,7 +288,7 @@ function Scanner(options) {
            
 	    if ((!err) && ((payout_addr[0] == config.addr_prefix)||(payout_addr[0] == config.addr_prefix2))) {
                 self.addr_working[info.ip] = info;
-              console.log("FOUND WORKING POOL: ", info.ip);
+         //     console.log("FOUND WORKING POOL: ", info.ip);
 	    if(!info.domain) {	
             nsLookup(info.ip, 1000, function(err, addresses) {
 		if (err) {
@@ -301,7 +311,7 @@ function Scanner(options) {
 				      info.stats = stats;
 				      digest_global_stats(info, function(err, stats) {
 				      if(!err){
-					  //console.log("global_stats ", info.ip);
+					 // console.log("global_stats ",stats," ", info.ip);
 					  self.update_global_stats(stats);
 				      
 
@@ -312,32 +322,31 @@ function Scanner(options) {
 						  }
 						  else
 						      console.error("Geo-error: ",err);
-					      continue_digest();
 					      });
-					  else
-					      continue_digest();
 					  }
 				    });
 				  }
 			    });  //local_stats
 			}
 		    });  //peer_addresses
-		   
-		}
-	    });
+		    
+		} 
+	    });//fee
+	    continue_digest();
             }
             else {
                 delete self.addr_working[info.ip];
 		delete self.addr_digested[info.ip];
 		delete self.addr_pending[info.ip];
 		console.log( "Deleted: "+info.ip);
+		self.store_working();
                 continue_digest();
             }
 
             function continue_digest() {
 	      self.nodes_total = _.size(self.addr_digested) + _.size(self.addr_pending);
                 self.working_size = _.size(self.addr_working);
-		//console.log(self.working_size);
+		console.log(self.nodes_total);
                 dpc(self.digest);
             }
         });
@@ -345,7 +354,7 @@ function Scanner(options) {
 
     // schedule restar of the scan once all IPs are done
     self.list_complete = function() {
-        console.log("Scan done. Next scan in ",config.rescan_list_delay/1000, " seconds");
+        console.log(Date("ddmmyy hh:mm")," Scan done. Next scan in ",config.rescan_list_delay/1000, " seconds");
         self.addr_pending = self.addr_digested;
         self.addr_digested = { }
         dpc(config.rescan_list_delay, self.digest);

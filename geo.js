@@ -1,14 +1,14 @@
 
 // if you know of a better way or a public geolocation API, please modify this!
 
-var http = require('http')
+var https = require('https')
 
-function Geo(options) {
+function Geo(options1) {
     var self = this;
         
     function request(options, callback)
     {    
-        http_handler = http;
+        http_handler = https;
         var req = http_handler.request(options, function(res) {
             res.setEncoding('utf8');
             var result = '';
@@ -22,7 +22,7 @@ function Geo(options) {
         });
 
         req.on('socket', function (socket) {
-            socket.setTimeout(options.timeout);  
+            socket.setTimeout(options1.timeout);  
             socket.on('timeout', function() {
                 req.abort();
             });
@@ -36,19 +36,17 @@ function Geo(options) {
     }
 
     function extract_geo(html) {
-       
+        
         // if you have a better way of doing this
         // or know of a free geoip locator, then
         // please change this!
-
-        html = html.replace(/[\r\n]/g, "");
-        var b = html.match(/Country:.*absmiddle/gm);
-        var c = b[0].match(/_blank.*\<\/a\>/g);
-        var d = c[0]
-        var country = d.substring(8,d.length-4);
-        var e = b[0].match(/src=\'.*alt/g);
-        var f = e[0];
-        var img = "http://www.geoiptool.com/"+f.substring(6, f.length-5);
+      
+        html = html.replace(/[\r\n\t]/g, "");
+        var b = html.match(/Country:<\/span>.{1,80}<\/span>/g);
+        var c = b[0].match(/src=\".*\>/g);
+	var img = "http://www.geoiptool.com/" +String(c).substring(8, String(c).indexOf("gif")+3);
+        var d = String(b);
+        var country = d.substring(d.indexOf("gif")+5,d.indexOf("/span>,")-1);
         
         var o = {
             country : country,
@@ -63,20 +61,25 @@ function Geo(options) {
         // console.log("QUERYING IP:",ip);
         var options = {
             host : 'www.geoiptool.com',
-            port : 80,
+            port : 443,
             path: '/en/?IP='+ip,
             method: 'GET'
-        }
-
+	}
+        
         request(options, function(err, response) {
-            if(err)
+	  
+            if(err){
+	      console.log("geo-reqest: error");
                 return callback(err);
+	    }
+	   
             var geo = null;
             try {
                 var geo = extract_geo(response);
-                // console.log(geo.country," ",geo.img);
+                 
             } catch(ex) {
                 console.error(ex);
+		return callback(ex,geo);
             }
 
             return callback(null, geo);
